@@ -8,6 +8,28 @@
 
 import UIKit
 
+class Display {
+    var initialDisplay = true
+    var newOperand = false
+    var resultString : String? = "0"
+    var resultNum : Double = 0
+    var firstOperand : Double? = 0
+    var secondOperand : Double? = 0
+    var operation : String? = nil
+    var decimal = false
+    
+    func reset() {
+        self.initialDisplay = true
+        self.newOperand = false
+        self.resultString = "0"
+        self.resultNum = 0
+        self.firstOperand = 0
+        self.secondOperand = 0
+        self.operation = nil
+        self.decimal = false
+    }
+}
+
 class ViewController: UIViewController {
     // MARK: Width and Height of Screen for Layout
     var w: CGFloat!
@@ -21,9 +43,9 @@ class ViewController: UIViewController {
     
     // TODO: This looks like a good place to add some data structures.
     //       One data structure is initialized below for reference.
-    var someDataStructure: [String] = [""]
+    var display = Display() // custom struct defined above
     
-
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         view = UIView(frame: UIScreen.main.bounds)
@@ -80,18 +102,168 @@ class ViewController: UIViewController {
     func numberPressed(_ sender: CustomButton) {
         guard Int(sender.content) != nil else { return }
         print("The number \(sender.content) was pressed")
-        // Fill me in!
+        
+        guard resultLabel.text!.characters.count < 7 else {
+            print("Display too long.")
+            return
+        }
+        
+        if display.initialDisplay { //initially display 0, reset when clear pressed
+            print("in the initialDisplay block")
+            display.resultString = sender.content
+            display.firstOperand = Double(sender.content)!
+            display.resultNum = Double(sender.content)!
+            display.initialDisplay = false
+        }
+        else if display.newOperand {
+            print("in the newOperand block")
+            display.resultString = sender.content
+            display.resultNum = Double(sender.content)!
+            display.newOperand = false
+            display.secondOperand = Double(sender.content)!
+        }
+        else { // alredy text on screen
+            print("text on screen block")
+            display.resultString! += sender.content
+            display.resultNum = Double(display.resultString!)!
+            
+            if display.firstOperand != nil {
+                display.secondOperand = display.resultNum
+            }
+        }
+        
+        updateLabel(newLabel: display.resultString)
+    }
+    
+    func updateLabel(newLabel : String?) {
+        if let temp = Double(newLabel!) {
+            let decimal = temp.truncatingRemainder(dividingBy: 1)
+            if decimal == 0 {
+                let newDisplay = Int(temp)
+                resultLabel.text = String(newDisplay)
+            }
+            else {
+                resultLabel.text = newLabel
+            }
+        }
+        else {
+            resultLabel.text = newLabel
+        }
     }
     
     // REQUIRED: The responder to an operator button being pressed.
     func operatorPressed(_ sender: CustomButton) {
-        // Fill me in!
+        print("The operator \(sender.content) was pressed")
+        if sender.content == "C" || sender.content == "c" {
+            display.reset()
+            updateLabel(newLabel: display.resultString)
+            return
+        }
+        
+        if sender.content == "+/-" {
+            if display.resultString != "0" { // don't negate 0
+                display.resultNum *= -1
+                display.resultString = String(display.resultNum)
+                display.secondOperand = display.resultNum
+                updateLabel(newLabel: display.resultString)
+                return
+            }
+        }
+        
+        display.newOperand = true
+        
+        if display.initialDisplay { //initially display 0, reset when clear pressed
+            display.operation = sender.content
+            display.firstOperand = display.resultNum
+            display.initialDisplay = false
+            display.decimal = false
+        }
+        else if display.operation == nil { // first operation
+            display.operation = sender.content
+            display.firstOperand = display.resultNum
+            display.decimal = false
+        }
+        else if display.firstOperand != nil && display.secondOperand != nil {
+            if let val = evaluate(display: display) { // attempt to evaluate
+                display.firstOperand = val
+                display.resultNum = val
+                display.resultString = String(val)
+            }
+            else {
+                print("Error occured in evaluating fucntion")
+                return
+            }
+            
+            if sender.content != "=" { // = is a special case and doesn't need to be saved
+                display.operation = sender.content
+            }
+            else {
+                display.operation = nil
+                display.firstOperand = display.resultNum
+            }
+            
+            display.decimal = false
+        }
+        
+        updateLabel(newLabel: display.resultString)
+    }
+    
+    func evaluate(display : Display) -> Double? {
+        switch display.operation! {
+        case "/":
+            return display.firstOperand! / display.secondOperand!
+        case "*":
+            return display.firstOperand! * display.secondOperand!
+        case "-":
+            return display.firstOperand! - display.secondOperand!
+        case "+":
+            return display.firstOperand! + display.secondOperand!
+        default:
+            return nil
+        }
     }
     
     // REQUIRED: The responder to a number or operator button being pressed.
     func buttonPressed(_ sender: CustomButton) {
-       // Fill me in!
+        print("The button \(sender.content) was pressed")
+        
+        if sender.content == "0" && display.resultString != "0" { // ensure 0 not already displayed
+            if display.newOperand {
+                display.resultString = sender.content
+                display.resultNum = Double(sender.content)!
+                display.newOperand = false
+                display.secondOperand = Double(sender.content)!
+            }
+            else {
+                display.resultString! += sender.content
+                display.resultNum = Double(display.resultString!)!
+                display.secondOperand = display.resultNum
+            }
+            
+            updateLabel(newLabel: display.resultString)
+        }
+        else if sender.content == "." && !display.decimal {
+            display.initialDisplay = false
+            if display.newOperand {
+                print("here")
+                display.resultString = "0" + sender.content
+                display.resultNum = Double(display.resultString! + "0")!
+                display.newOperand = false
+            }
+            else {
+                display.resultString! += sender.content
+                display.resultNum = Double(display.resultString! + "0")!
+            }
+            
+            if display.firstOperand != nil {
+                display.secondOperand = display.resultNum
+            }
+            
+            display.decimal = true // NOTE: FIGURE OUT WHICH FUNCTIONS NEED TO RESET THIS!
+            updateLabel(newLabel: display.resultString) // testing
+        }
     }
+    
     
     // IMPORTANT: Do NOT change any of the code below.
     //            We will be using these buttons to run autograded tests.
